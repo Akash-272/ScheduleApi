@@ -1,0 +1,39 @@
+# Ignore Visual Studio files
+.vs/
+*.user
+*.suo
+*.ntvs*
+*.njsproj
+*.sln.docstates
+
+# Ignore build directories
+bin/
+obj/
+
+# Ignore dependencies
+packages/
+*.nupkg
+project.lock.json
+project.assets.json
+
+# Ignore Entity Framework migrations
+Migrations/
+
+# Ignore logs and generated files
+logs/
+*.log
+*.tlog
+
+# Ignore User Secrets
+secrets.json
+
+# Ignore Database files
+app.db
+app.db-journal
+
+# Ignore JetBrains Rider and Resharper files
+.idea/
+*.DotSettings.user
+
+# Ignore configuration
+.env
