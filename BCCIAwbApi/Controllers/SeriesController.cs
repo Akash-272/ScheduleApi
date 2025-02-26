@@ -1,6 +1,7 @@
 ﻿using BCCIAwbApi.Models;
-using BCCIAwbApi.Repository;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using Dapper;
 
 namespace BCCIAwbApi.Controllers
 {
@@ -8,46 +9,34 @@ namespace BCCIAwbApi.Controllers
     [ApiController]
     public class SeriesController : ControllerBase
     {
-        private readonly ISeriesRepository _repository;
-
-        public SeriesController(ISeriesRepository repository)
+        private readonly IConfiguration _configuration;
+        public SeriesController(IConfiguration configuration)
         {
-            _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+            _configuration = configuration;
         }
-
-        [HttpPost]
-        public IActionResult CreateSeries([FromBody] Series series)
-        {
-            _repository.AddSeries(series);
-            return CreatedAtAction(nameof(GetSeriesById), new { id = series.SeriesID }, series);
-        }
-
-        [HttpPut("{id}")]
-        public IActionResult ModifySeries(int id, [FromBody] Series updatedSeries)
-        {
-            _repository.UpdateSeries(updatedSeries);
-            return NoContent();
-        }
-
-        [HttpDelete("{id}")]
-        public IActionResult DeleteSeries(int id)
-        {
-            _repository.DeleteSeries(id);
-            return NoContent();
-        }
-
         [HttpGet]
-        public IActionResult GetAllSeries()
-        {
-            return Ok(_repository.GetAllSeries());
+        [Route("GetAllSeries")]
+        public IActionResult GetSeries() {
+            using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                string query = "SELECT * FROM Series";
+                var seriesList = con.Query<Series>(query).ToList();
+
+                string query1= "SELECT * FROM Matches";
+                var matchList=con.Query<Match>(query1).ToList();
+
+                foreach(var s in seriesList)
+                {
+                    s.Matches=matchList.Where(m=>m.SeriesID==s.SeriesID).ToList();
+                }
+                if (seriesList.Any())
+                {
+                    return Ok(seriesList);
+                }
+                return NotFound(new { statusCode = 100, ErrorMessage = "No Data Found" });
+            }
         }
 
-        [HttpGet("{id}")]
-        public IActionResult GetSeriesById(int id)
-        {
-            var series = _repository.GetSeriesById(id);
-            if (series == null) return NotFound();
-            return Ok(series);
-        }
+
     }
 }
