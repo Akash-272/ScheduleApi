@@ -3,6 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Dapper;
 using BCCIAwbApi.DTO;
+using Newtonsoft.Json;
+using System.Globalization;
+using System.Text;
 
 namespace BCCIAwbApi.Controllers
 {
@@ -11,9 +14,11 @@ namespace BCCIAwbApi.Controllers
     public class SeriesController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly HttpClient _client = new HttpClient();
         public SeriesController(IConfiguration configuration)
         {
             _configuration = configuration;
+            _client.BaseAddress = new Uri("https://localhost:7064/api");
         }
         [HttpGet]
         [Route("GetAllSeries")]
@@ -62,9 +67,13 @@ namespace BCCIAwbApi.Controllers
         }
 
 
+
+
+
         [HttpPost]
         [Route("AddSeries")]
-        public IActionResult GetSeries(SeriesDto series) {
+        public IActionResult GetSeries(SeriesDto series)
+        {
             using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
             {
                 string query = "INSERT INTO Series (Name,StartDate,EndDate) VALUES (@Name,@StartDate,@EndDate)";
@@ -77,6 +86,56 @@ namespace BCCIAwbApi.Controllers
             }
         }
 
+        [HttpPost]
+        [Route("AddSeriesForCurrentWeek")]
+        public IActionResult CreateSeriesForCurrentWeek(SeriesDto series)
+        {
+            DateTime today = DateTime.Now;
+            DateTime weekStart = today.AddDays(-(int)today.DayOfWeek + 1);
+            DateTime weekEnd = weekStart.AddDays(6);
+            DateTime startDate = DateTime.ParseExact(series.StartDate, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+            DateTime endDate = DateTime.ParseExact(series.EndDate, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+            if (startDate < weekStart || endDate > weekEnd)
+            {
+                return BadRequest(new { Message = "Series must be within the current week!" });
+            }
+
+            string data = JsonConvert.SerializeObject(series);
+            StringContent content = new StringContent(data, Encoding.UTF8, "application/json");
+            HttpResponseMessage response = _client.PostAsync(_client.BaseAddress + "/Series/AddSeries", content).Result;
+
+            return Ok(new { Message = "Series added successfully!" });
+        }
+
+        [HttpGet]
+        [Route("GetWeatherForecast/{date}")]
+        public async Task<IActionResult> GetWeatherForecast(string date)
+        {
+            string apiKey = "2392b26f6dcc83d61f13bcce5faaccff";
+            string city = "Pune";
+            string url = $"https://api.openweathermap.org/data/2.5/forecast?q={city}&appid={apiKey}";
+
+            HttpResponseMessage response = await _client.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                return BadRequest("Failed to fetch weather data");
+            }
+
+            string responseData = await response.Content.ReadAsStringAsync();
+            dynamic weatherData = JsonConvert.DeserializeObject(responseData);
+
+            foreach (var forecast in weatherData.list)
+            {
+                string forecastDate = forecast.dt_txt;
+                if (forecastDate.Contains(date))
+                {
+                    double rainChance = forecast.pop * 100;
+                    return Ok(new { Date = date, RainProbability = rainChance });
+                }
+            }
+
+            return NotFound("No forecast data available");
+        }
 
         [HttpPut]
         [Route("UpdateSeries")]

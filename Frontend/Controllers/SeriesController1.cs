@@ -2,6 +2,7 @@
 using Frontend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
+using System.Globalization;
 using System.Net.Http;
 using System.Text;
 
@@ -130,20 +131,19 @@ namespace Frontend.Controllers
             return RedirectToAction("Index");
         }
 
-
-        public IActionResult CreateSeries(SeriesDto series)
+        [HttpGet]
+        public IActionResult CreateSeriesForCurrentWeek(SeriesDto series)
         {
             DateTime today = DateTime.Now;
             DateTime weekStart = today.AddDays(-(int)today.DayOfWeek + 1); 
             DateTime weekEnd = weekStart.AddDays(6);
-            var StartDate = DateTime.Parse(series.StartDate).ToString("dd-MM-yyyy");
-            var EndDate = DateTime.Parse(series.EndDate).ToString("dd/MM/yyyy");
-            if (StartDate < weekStart || EndDate > weekEnd)
+            DateTime startDate = DateTime.ParseExact(series.StartDate, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+            DateTime endDate = DateTime.ParseExact(series.EndDate, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+            if (startDate < weekStart || endDate > weekEnd)
             {
                 return BadRequest(new { Message = "Series must be within the current week!" });
             }
 
-            // Call API to add the series
             string data = JsonConvert.SerializeObject(series);
             StringContent content = new StringContent(data, Encoding.UTF8, "application/json");
             HttpResponseMessage response = _client.PostAsync(_client.BaseAddress + "/Series/AddSeries", content).Result;
